@@ -1,0 +1,6 @@
+.DS_Store
+*.pyc
+node_modules
+datadumps
+.login
+accounts.json
