@@ -7,10 +7,12 @@ import time
 import json
 import os
 
-RUN_UPDATE = 1
+RUN_UPDATE = True
+DELETE_DATA_AFTER = True
 
 OUTPUT_DATA = os.path.join(dirname(realpath(__file__))) + "/datadumps"
 ACCOUNTS = json.load(open(dirname(realpath(__file__)) + "/accounts.json"))
+ADJUSTMENTS = json.load(open(os.path.dirname(os.path.realpath(__file__)) + "/adjustments.json"))
 LOGIN = json.load(open(dirname(realpath(__file__)) + "/.login"))
 DATA_FOLDER = "./datadumps"
 TIME_FORMAT = "%m/%d/%Y %H:%M:%S"
@@ -59,9 +61,10 @@ def makedata(account):
     "meta": {
       "start_date": startdate.strftime(DATE_FORMAT),
       "last_updated": datetime.now().strftime(DATE_FORMAT),
+      "adjustment_history": ADJUSTMENTS,
       "symbols_traded": symbols_traded,
       "max_contribution": 5500,
-      "commission": 6.95
+      "commission": ["2/28/18", 6.95]
     }
   }
   day = startdate
@@ -70,6 +73,7 @@ def makedata(account):
   positions = {}
   total_contributions = 0
   ytd_contributions = {str(startdate.year): 0}
+  total_fees = 0
   cash_balance = 0
   while day < today:
     if day.weekday() < 5:
@@ -90,6 +94,25 @@ def makedata(account):
         pos["h"] = history[p][daystr]["h"]
         pos["l"] = history[p][daystr]["l"]
         pos["c"] = history[p][daystr]["c"]
+        # ajdust position info to if needed:
+        # - stock prices before splits/adjustments are reverted to original
+        # - avg + shares are adjusted on day of splits/adjustments, carried forward
+        if p in ADJUSTMENTS:
+          adj = ADJUSTMENTS[p]
+          # if day of adjusment, ajust shares + avg
+          if daystr in adj:
+            ratio = float(adj[daystr]["ratio"].split(":")[0])/float(adj[daystr]["ratio"].split(":")[1])
+            pos["avg"] /= ratio
+            pos["shares"] = int(round(pos["shares"] * ratio))
+          else:
+            adjday = today # datetime objects are immutable
+            while adjday > day:
+              adjstr = adjday.strftime(DATE_FORMAT)
+              if adjstr in adj and adj[adjstr]["kibot_updated"]:
+                ratio = float(adj[adjstr]["ratio"].split(":")[0])/float(adj[adjstr]["ratio"].split(":")[1])
+                for key in ["o","h","l","c"]:
+                  pos[key] *= ratio
+              adjday -= timedelta(days=1)
 
       # update transactions, and positions
       if len(transactions) > 0: data["transactions"] = transactions
@@ -100,11 +123,14 @@ def makedata(account):
           total_contributions += t["amount"]
           if str(day.year) in ytd_contributions: ytd_contributions[str(day.year)] += t["amount"]
           else: ytd_contributions[str(day.year)] = t["amount"]
+        elif t["type"] == "fee":
+          total_fees += t["amount"]
         else:
           sym = t["symbol"]
           hist = history[sym][daystr]
 
         if t["type"] == "buy":
+          # new position
           if sym not in active_investments:
             active_investments.append(sym)
             data["positions"][sym] = {
@@ -116,6 +142,18 @@ def makedata(account):
               "avg": t["price"],
               "since": t["date"],
             }
+            # adjust stock prices for future splits/adjustments
+            if sym in ADJUSTMENTS:
+              adj = ADJUSTMENTS[sym]
+              adjday = today # datetime objects are immutable
+              while adjday > day:
+                adjstr = adjday.strftime(DATE_FORMAT)
+                if adjstr in adj and adj[adjstr]["kibot_updated"]:
+                  ratio = float(adj[adjstr]["ratio"].split(":")[0])/float(adj[adjstr]["ratio"].split(":")[1])
+                  for key in ["o","h","l","c"]:
+                    data["positions"][sym][key] *= ratio
+                adjday -= timedelta(days=1)
+          # updated position
           else:
             pos = data["positions"][sym]
             pos["avg"] = ((pos["avg"] * pos["shares"]) + (t["shares"] * t["price"])) / (pos["shares"] + t["shares"])
@@ -159,7 +197,7 @@ def senddata(file):
   child.sendline(LOGIN["scp_pwd"])
   child.read()
 
-if RUN_UPDATE == 1: 
+if RUN_UPDATE: 
   getdata()
   DATA_FILES = [f for f in os.listdir(DATA_FOLDER) if isfile(join(DATA_FOLDER, f))]
   TDA_FILES = [f for f in DATA_FILES if "tda_" in f]
@@ -185,6 +223,7 @@ with open("datadumps/deltapoint.appdata.json_encrypted.html", "r") as file:
       break
 print ("\t" * (len(a) / 3)) + "\t\t\t\tdone"
 
-print "uploading to server...",
-senddata(f)
-print ("\t" * (len(a) / 3)) + "\t\tdone"
+if RUN_UPDATE: 
+  print "uploading to server...",
+  senddata(f)
+  print ("\t" * (len(a) / 3)) + "\t\tdone"

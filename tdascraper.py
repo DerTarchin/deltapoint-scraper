@@ -24,6 +24,8 @@ def parse_history(hist):
         "symbol": sep[2],
         "price": num(sep[4])
       }
+    elif "fee" in ldesc:
+      return {"type": "fee"}
     else:
       return {"type": "transfer"}
   
@@ -48,7 +50,7 @@ def save_data(name, ext, datafolder, data):
   return file
 
 def update_td(account, datafolder):
-  print "=== updating", account, datetime.now().year, "===\n"
+  print "==== updating", account, datetime.now().year, "====\n"
 
   tabs = "\t" * (len(account) / 2)
 
@@ -117,5 +119,5 @@ def update_td(account, datafolder):
   for f in files:
     print f
 
-  print "\n=== updated data ==="
+  print "\n==== updated data ===="
   return file
