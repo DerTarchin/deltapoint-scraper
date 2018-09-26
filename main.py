@@ -64,7 +64,9 @@ def makedata(account):
       "adjustment_history": ADJUSTMENTS,
       "symbols_traded": symbols_traded,
       "max_contribution": 5500,
-      "commission": ["2/28/18", 6.95]
+      "commission": [
+        ["2/28/2018", 6.95]
+      ]
     }
   }
   day = startdate
@@ -128,8 +130,17 @@ def makedata(account):
         else:
           sym = t["symbol"]
           hist = history[sym][daystr]
+          if t["type"] in ["buy", "sell"]:
+            commissions = timeseries["meta"]["commission"]
+            currCommission = commissions[-1][1]
+            if datetime.strptime(commissions[-1][0], DATE_FORMAT) > day:
+              commissionsIndex = -1
+              while abs(commissionsIndex) <= len(commissions) and datetime.strptime(commissions[commissionsIndex][0], DATE_FORMAT) > day:
+                commissionsIndex -= 1
+              currCommission = commissions[commissionsIndex][1]
 
         if t["type"] == "buy":
+          total_fees += currCommission
           # new position
           if sym not in active_investments:
             active_investments.append(sym)
@@ -160,6 +171,7 @@ def makedata(account):
             pos["shares"] += t["shares"]
 
         if t["type"] == "sell":
+          total_fees += currCommission
           pos = data["positions"][sym]
           if pos["shares"] == t["shares"]:
             active_investments.remove(sym)
@@ -175,6 +187,7 @@ def makedata(account):
       data["ytd_contributions"] = ytd_contributions[str(day.year)]
       data["cash_balance"] = cash_balance
       data["active_investments"] = active_investments[:]
+      data["total_fees"] = total_fees
       data["balance"] = data["cash_balance"] + sum([data["positions"][p]["shares"] * data["positions"][p]["c"] for p in data["positions"]])
 
       timeseries[daystr] = data
