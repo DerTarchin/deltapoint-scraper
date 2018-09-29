@@ -127,7 +127,9 @@ def makedata(account):
           else: ytd_contributions[str(day.year)] = t["amount"]
         elif t["type"] == "fee":
           total_fees += abs(t["amount"])
-        else:
+        # elif t["type"] == "adj":
+          # continue
+        elif t["type"] in ["buy", "sell"]:
           sym = t["symbol"]
           hist = history[sym][daystr]
           if t["type"] in ["buy", "sell"]:

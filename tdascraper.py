@@ -26,8 +26,10 @@ def parse_history(hist):
       }
     elif "fee" in ldesc:
       return {"type": "fee"}
-    else:
+    elif "funding" in ldesc:
       return {"type": "transfer"}
+    else:
+      return {"type": "adj"}
   
   parsed = []
   for row in hist:
