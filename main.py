@@ -212,6 +212,15 @@ def senddata(file):
   child.sendline(LOGIN["scp_pwd"])
   child.read()
 
+def erasedata():
+  files = [
+    OUTPUT_DATA + "/deltapoint.appdata.json",
+    OUTPUT_DATA + "/deltapoint.appdata.encrypted.json",
+    OUTPUT_DATA + "/deltapoint.appdata.json_encrypted.html",
+    # TODO: erase all year data (need to be able to save older years first in API)
+  ]
+  for f in files: os.remove(f)
+
 if RUN_UPDATE: 
   getdata()
   DATA_FILES = [f for f in os.listdir(DATA_FOLDER) if isfile(join(DATA_FOLDER, f))]
@@ -241,4 +250,7 @@ print ("\t" * (len(a) / 3)) + "\t\t\t\tdone"
 if RUN_UPDATE: 
   print "uploading to server...",
   senddata(f)
+  print ("\t" * (len(a) / 3)) + "\t\tdone"
+  print "erasing from local...",
+  erasedata()
   print ("\t" * (len(a) / 3)) + "\t\tdone"
