@@ -8,6 +8,11 @@ KIBOT_LOGIN = "http://api.kibot.com/?action=login&user=guest&password=guest"
 KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=<STARTDATE>"
 login = json.load(open(os.path.dirname(os.path.realpath(__file__)) + "/.login"))
 
+LOG = open("log.txt", "a")
+def printf(txt):
+  LOG.write(txt)
+  LOG.flush()
+
 dateformat = "%m/%d/%Y %H:%M:%S"
 def num(n):
   return float(n.replace(",",""))
@@ -52,25 +57,23 @@ def save_data(name, ext, datafolder, data):
   return file
 
 def update_td(account, datafolder):
-  print "==== updating", account, datetime.now().year, "====\n"
-
-  tabs = "\t" * (len(account) / 2)
+  printf( "<< updating " + str(account) + " " + str(datetime.now().year) + " >>\n")
 
   # log in
-  print "starting scraper...",
+  printf( "starting scraper...")
   td = tdapi.TD(login)
-  print tabs + "done"
+  printf( "done\n")
 
   # switch account to IRA
-  print "switching to " + account + "...",
+  printf( "switching to " + account + "...")
   td.account(account)
-  print "\t\tdone"
+  printf( "done\n")
 
   # get transaction history
-  print "getting history...",
+  printf( "getting history...")
   history = td.history()
   parsed = parse_history(history)
-  print tabs + "\tdone"
+  printf( "done\n")
 
   startdate = None
   symbols = []
@@ -84,7 +87,7 @@ def update_td(account, datafolder):
   loggedInKibot = False
   symboldata = []
   for s in symbols:
-    print "getting $" + s.upper() + " data...",
+    printf( "getting $" + s.upper() + " data...")
     if not loggedInKibot:
       requests.get(KIBOT_LOGIN)
     response = requests.get(KIBOT_STOCK.replace("<SYMBOL>",s.upper()).replace("<STARTDATE>",startdate.strftime("%d/%m/%Y"))).text
@@ -103,23 +106,21 @@ def update_td(account, datafolder):
         "c": float(data[4])
       }
     symboldata.append(sym)
-    print tabs + "done" if len(s) < 4 else tabs[:-1] + "done"
+    printf( "done\n" if len(s) < 4 else "done\n")
 
   # quit
-  print "exiting scraper...",
+  printf( "exiting scraper...")
   td.close()
-  print tabs + "\tdone"
+  printf( "done\n")
 
-  print "saving data...",
+  printf( "saving data...")
   files = []
   files.append(save_data("tda_" + account + "_" + str(datetime.now().year), ".json", datafolder, parsed))
   for s in symboldata:
     files.append(save_data(s["symbol"], ".txt", datafolder, s["data"]))
 
-  print tabs + "\t\t\tdone\n"
+  printf( "done\n")
 
   for f in files:
-    print f
-
-  print "\n==== updated data ===="
+    printf(f+"\n")
   return file

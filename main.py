@@ -6,6 +6,7 @@ import pexpect
 import time
 import json
 import os
+import sys
 
 RUN_UPDATE = True
 DELETE_DATA_AFTER = True
@@ -19,6 +20,11 @@ TIME_FORMAT = "%m/%d/%Y %H:%M:%S"
 DATE_FORMAT = "%m/%d/%Y"
 DATA_FILES = [f for f in os.listdir(DATA_FOLDER) if isfile(join(DATA_FOLDER, f))]
 TDA_FILES = [f for f in DATA_FILES if "tda_" in f]
+
+LOG = open("log.txt", "a")
+def printf(txt):
+  LOG.write(txt)
+  LOG.flush()
 
 # update all accounts
 # TODO: make tdascraper an object you can keep instances of and switch accounts for
@@ -221,23 +227,29 @@ def erasedata():
   ]
   for f in files: os.remove(f)
 
+
+
+
+
+############# MAIN #############
+printf("==== " + datetime.now().strftime(TIME_FORMAT) + " ====\n")
+
 if RUN_UPDATE: 
   getdata()
   DATA_FILES = [f for f in os.listdir(DATA_FOLDER) if isfile(join(DATA_FOLDER, f))]
   TDA_FILES = [f for f in DATA_FILES if "tda_" in f]
-  print ""
 
 accountdata = {}
 for a in ACCOUNTS:
-  print "building "+a+"...",
+  printf( "building "+a+"...")
   accountdata[a] = makedata(a)
-  print ("\t" * (len(a) / 3)) + "done"
+  printf( "done\n")
   
-print "saving to file...",
+printf( "saving to file...")
 f = savedata(accountdata)
-print ("\t" * (len(a) / 3)) + "\t\t\t\tdone"
+printf("done\n")
 
-print "encrypting file...",
+printf( "encrypting file...")
 os.system(' '.join(["staticrypt", f.replace(' ','\ '), LOGIN["scp_pwd"]]))
 time.sleep(1)
 with open("datadumps/deltapoint.appdata.json_encrypted.html", "r") as file:
@@ -245,12 +257,14 @@ with open("datadumps/deltapoint.appdata.json_encrypted.html", "r") as file:
     if "encryptedMsg = '" in line.strip(): 
       f = savedata({"encryptedMsg": line.strip()[16:-2]}, True)
       break
-print ("\t" * (len(a) / 3)) + "\t\t\t\tdone"
+printf("done\n")
 
 if RUN_UPDATE: 
-  print "uploading to server...",
+  printf( "uploading to server...")
   senddata(f)
-  print ("\t" * (len(a) / 3)) + "\t\tdone"
-  print "erasing from local...",
+  printf( "done\n")
+  printf( "erasing from local...")
   erasedata()
-  print ("\t" * (len(a) / 3)) + "\t\tdone"
+  printf( "done\n")
+
+printf( "===============================\n\n")
