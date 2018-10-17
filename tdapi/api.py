@@ -1,3 +1,4 @@
+import selenium
 from selenium.webdriver.chrome.options import Options
 from datetime import date, datetime, timedelta
 import unicodedata

@@ -6,10 +6,12 @@ import os
 
 KIBOT_LOGIN = "http://api.kibot.com/?action=login&user=guest&password=guest"
 KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=<STARTDATE>"
-login = json.load(open(os.path.dirname(os.path.realpath(__file__)) + "/.login"))
+CWD = os.path.dirname(os.path.realpath(__file__))
+login = json.load(open(CWD + "/.login"))
 
-LOG = open("log.txt", "a")
 def printf(txt):
+  print txt,
+  LOG = open(CWD + "/log.txt", "a")
   LOG.write(txt)
   LOG.flush()
 
