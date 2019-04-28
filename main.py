@@ -1,5 +1,11 @@
 from os.path import isfile, join, realpath, dirname
+import math
 import traceback
+from datetime import datetime, timedelta
+from shutil import copyfile
+import os
+import sys
+import time
 
 def printf(txt):
   LOG = open(dirname(realpath(__file__)) + "/log.txt", "a")
@@ -8,12 +14,6 @@ def printf(txt):
   LOG.flush()
 
 try:
-  # standard imports 
-  from datetime import datetime, timedelta
-  import os
-  import sys
-  import time
-
   # printf("running..." + datetime.now().strftime("%m/%d/%Y %H:%M:%S")+"\n")
   # printf(os.getcwd()+"\n")
   # printf(dirname(realpath(__file__))+"\n")
@@ -27,7 +27,6 @@ try:
   # sys.exit();
 
   RUN_UPDATE = True
-  DELETE_DATA_AFTER = True
 
   CWD = dirname(realpath(__file__))
   DATA_FOLDER = os.path.join(CWD) + "/datadumps"
@@ -36,24 +35,29 @@ try:
   LOGIN = json.load(open(CWD + "/.login"))
   TIME_FORMAT = "%m/%d/%Y %H:%M:%S"
   DATE_FORMAT = "%m/%d/%Y"
+  FILENAME_LONG = "deltapoint.appdata.json"
+  FILENAME = ".dpd"
+
+  YEAR = datetime.now().year
+  # YEAR = 2018
 
   # update all accounts
   # TODO: make tdascraper an object you can keep instances of and switch accounts for
   # OR make it take an array of accounts to iterate through to update
   def getdata():
     for a in ACCOUNTS:
-      update_td(a, DATA_FOLDER)
+      update_td(a, DATA_FOLDER, YEAR)
 
   def makedata(account):
+    global YEAR
     # get all transactions
-    year = datetime.now().year
     transactions = []
-    readfile = "_".join(map(str, ["tda",account,year])) + ".json"
+    readfile = "_".join(map(str, ["tda", account, YEAR])) + ".json"
     while readfile in TDA_FILES:
       with open(DATA_FOLDER + "/" + readfile) as f:
         transactions += json.load(f)
-      readfile = readfile.replace(str(year), str(year-1))
-      year -= 1
+      readfile = readfile.replace(str(YEAR), str(YEAR-1))
+      YEAR -= 1
 
     # get basic statistics and remap data to transaction dates
     symbols_traded = []
@@ -78,12 +82,10 @@ try:
       "meta": {
         "start_date": startdate.strftime(DATE_FORMAT),
         "last_updated": datetime.now().strftime(DATE_FORMAT),
-        "adjustment_history": ADJUSTMENTS,
+        "adjustment_history": ADJUSTMENTS["adjustment_history"],
         "symbols_traded": symbols_traded,
-        "max_contribution": 5500,
-        "commission": [
-          ["2/28/2018", 6.95]
-        ]
+        "max_contribution": ADJUSTMENTS["contribution_history"],
+        "commission": ADJUSTMENTS["commission_history"]
       }
     }
     day = startdate
@@ -91,9 +93,10 @@ try:
     active_investments = []
     positions = {}
     total_contributions = 0
-    ytd_contributions = {str(startdate.year): 0}
+    ytd_contributions = { str(startdate.year): 0 }
     total_fees = 0
     cash_balance = 0
+    total_trades = 0
     while day < today:
       if day.weekday() < 5:
         daystr = day.strftime(DATE_FORMAT)
@@ -114,29 +117,33 @@ try:
           pos["l"] = history[p][daystr]["l"]
           pos["c"] = history[p][daystr]["c"]
           # ajdust position info to if needed:
-          # - stock prices before splits/adjustments are reverted to original
           # - avg + shares are adjusted on day of splits/adjustments, carried forward
-          if p in ADJUSTMENTS:
-            adj = ADJUSTMENTS[p]
+          if p in ADJUSTMENTS["adjustment_history"]:
+            adj = ADJUSTMENTS["adjustment_history"][p]
             # if day of adjusment, ajust shares + avg
             if daystr in adj:
               ratio = float(adj[daystr]["ratio"].split(":")[0])/float(adj[daystr]["ratio"].split(":")[1])
               pos["avg"] /= ratio
-              pos["shares"] = int(round(pos["shares"] * ratio))
+              pos["shares"] = int(math.floor(pos["shares"] * ratio))
             else:
               adjday = today # datetime objects are immutable
-              while adjday > day:
+              ratio = None
+              while ratio is None and adjday >= startdate:
                 adjstr = adjday.strftime(DATE_FORMAT)
-                if adjstr in adj and adj[adjstr]["kibot_updated"]:
+                if adjstr in adj and not adj[adjstr]["kibot_updated"]:
                   ratio = float(adj[adjstr]["ratio"].split(":")[0])/float(adj[adjstr]["ratio"].split(":")[1])
-                  for key in ["o","h","l","c"]:
-                    pos[key] *= ratio
-                adjday -= timedelta(days=1)
+                else:
+                  adjday -= timedelta(days=1)
+              if adjday < day and ratio:
+                for key in ["o","h","l","c"]:
+                  pos[key] /= ratio
 
         # update transactions, and positions
         if len(transactions) > 0: data["transactions"] = transactions
         for t in transactions:
           current = datetime.strptime(t["date"], TIME_FORMAT)
+
+          cash_balance += t["amount"]
 
           if t["type"] == "transfer":
             total_contributions += t["amount"]
@@ -149,17 +156,19 @@ try:
           elif t["type"] in ["buy", "sell"]:
             sym = t["symbol"]
             hist = history[sym][daystr]
-            if t["type"] in ["buy", "sell"]:
-              commissions = timeseries["meta"]["commission"]
-              currCommission = commissions[-1][1]
-              if datetime.strptime(commissions[-1][0], DATE_FORMAT) > day:
-                commissionsIndex = -1
-                while abs(commissionsIndex) <= len(commissions) and datetime.strptime(commissions[commissionsIndex][0], DATE_FORMAT) > day:
-                  commissionsIndex -= 1
-                currCommission = commissions[commissionsIndex][1]
+            # >> following was removed due to introduction of commission in data
+            # commissions = timeseries["meta"]["commission"]
+            # currCommission = commissions[-1][1]
+            # if datetime.strptime(commissions[-1][0], DATE_FORMAT) > day:
+            #   commissionsIndex = -1
+            #   while abs(commissionsIndex) <= len(commissions) and datetime.strptime(commissions[commissionsIndex][0], DATE_FORMAT) > day:
+            #     commissionsIndex -= 1
+            #   currCommission = commissions[commissionsIndex][1]
+            total_fees += t["commission"]
+            total_fees += t["reg_fee"]
+            total_trades += 1
 
           if t["type"] == "buy":
-            total_fees += currCommission
             # new position
             if sym not in active_investments:
               active_investments.append(sym)
@@ -190,7 +199,6 @@ try:
               pos["shares"] += t["shares"]
 
           if t["type"] == "sell":
-            total_fees += currCommission
             pos = data["positions"][sym]
             if pos["shares"] == t["shares"]:
               active_investments.remove(sym)
@@ -198,16 +206,15 @@ try:
             else:
               pos["shares"] -= t["shares"]
 
-          if latest is None or latest <= current: cash_balance = t["remaining"]
           latest = current
 
         # update account information
         data["total_contributions"] = total_contributions
-        data["ytd_contributions"] = ytd_contributions[str(day.year)]
+        data["ytd_contributions"] = ytd_contributions.get(str(day.year), 0)
         data["cash_balance"] = cash_balance
-        data["active_investments"] = active_investments[:]
         data["total_fees"] = total_fees
         data["balance"] = data["cash_balance"] + sum([data["positions"][p]["shares"] * data["positions"][p]["c"] for p in data["positions"]])
+        data["total_trades"] = total_trades
 
         timeseries[daystr] = data
         # deepcopy local positions
@@ -217,39 +224,31 @@ try:
     return timeseries
 
   def savedata(data, encrypted=False):
-    file = DATA_FOLDER + "/deltapoint.appdata" + (".encrypted" if encrypted else "") + ".json"
+    if encrypted:
+      file = DATA_FOLDER + "/" + FILENAME
+    else:
+      file = DATA_FOLDER + "/" + FILENAME_LONG
     f = open(file, "w")
     f.write(json.dumps(data, indent=2))
     return file
 
   def senddata(file):
-    file = file.replace(' ','\ ')
-    child = pexpect.spawn(' '.join(['scp -P',LOGIN["scp_port"],file,LOGIN["scp_addr"]]))
-    child.expect(".*password.*")
-    child.sendline(LOGIN["scp_pwd"])
+    copyfile(file, LOGIN["repo"] + FILENAME)
+    child = pexpect.spawn("bash")
+    child.sendline("cd " + LOGIN["repo"])
+    child.sendline("git add .;git commit -m refresh;git push origin master")
+    child.readline() # use print to see errors
+    child.sendline("exit")
     child.read()
 
-  def erasedata():
-    files = [
-      DATA_FOLDER + "/deltapoint.appdata.json",
-      DATA_FOLDER + "/deltapoint.appdata.encrypted.json",
-      DATA_FOLDER + "/deltapoint.appdata.json_encrypted.html",
-      # TODO: erase all year data (need to be able to save older years first in API)
-    ]
-    for f in files: os.remove(f)
-
-
-
-
-
   ############# MAIN #############
-  printf("==== " + datetime.now().strftime(TIME_FORMAT) + " ====\n")
+  printf("\n\n==== " + datetime.now().strftime(TIME_FORMAT) + " ====\n")
 
   if RUN_UPDATE: 
     getdata()
-    DATA_FILES = [f for f in os.listdir(DATA_FOLDER) if isfile(join(DATA_FOLDER, f))]
-    TDA_FILES = [f for f in DATA_FILES if "tda_" in f]
 
+  DATA_FILES = [f for f in os.listdir(DATA_FOLDER) if isfile(join(DATA_FOLDER, f))]
+  TDA_FILES = [f for f in DATA_FILES if "tda_" in f]
   accountdata = {}
   for a in ACCOUNTS:
     printf( "building "+a+"...")
@@ -261,24 +260,19 @@ try:
   printf("done\n")
 
   printf( "encrypting file...")
-  os.system(' '.join(["staticrypt", f.replace(' ','\ '), LOGIN["scp_pwd"]]))
+  os.system(' '.join(["staticrypt", f.replace(' ','\ '), LOGIN["pwd"]]))
   time.sleep(1)
-  with open(DATA_FOLDER+"/deltapoint.appdata.json_encrypted.html", "r") as file:
+  with open(DATA_FOLDER+"/" + FILENAME_LONG + "_encrypted.html", "r") as file:
     for line in file.readlines():
       if "encryptedMsg = '" in line.strip(): 
         f = savedata({"encryptedMsg": line.strip()[16:-2]}, True)
         break
   printf("done\n")
 
-  if RUN_UPDATE: 
-    printf( "uploading to server...")
-    senddata(f)
-    printf( "done\n")
-    printf( "erasing from local...")
-    erasedata()
-    printf( "done\n")
-
-  printf( "===============================\n\n")
+  printf( "uploading to server...")
+  senddata(f)
+  printf( "done\n")
+  printf( "=============================")
 
 except Exception, e:
     traceback.print_exc()

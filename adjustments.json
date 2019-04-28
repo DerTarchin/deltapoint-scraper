@@ -1,8 +1,17 @@
 {
-  "svxy": {
-    "09/18/2018": {
-      "ratio": "1:4",
-      "kibot_updated": false
+  "commission_history": [
+    ["2/28/2018", 6.95]
+  ],
+  "contribution_history": [
+    [2018, 5500],
+    [2019, 6000]
+  ],
+  "adjustment_history": {
+    "svxy": {
+      "09/18/2018": {
+        "ratio": "1:4",
+        "kibot_updated": true
+      }
     }
   }
 }

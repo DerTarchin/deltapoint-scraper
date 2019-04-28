@@ -5,7 +5,8 @@ import tdapi
 import os
 
 KIBOT_LOGIN = "http://api.kibot.com/?action=login&user=guest&password=guest"
-KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=<STARTDATE>"
+# KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=<STARTDATE>"
+KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=08/08/18"
 CWD = os.path.dirname(os.path.realpath(__file__))
 login = json.load(open(CWD + "/.login"))
 
@@ -17,7 +18,8 @@ def printf(txt):
 
 dateformat = "%m/%d/%Y %H:%M:%S"
 def num(n):
-  return float(n.replace(",",""))
+  val = float(n.replace(",",""))
+  return int(val) if int(val) == val else val
 
 def parse_history(hist):
   
@@ -28,7 +30,7 @@ def parse_history(hist):
       return {
         "type": "buy" if "bought" in sep[0] else "sell",
         "shares": num(sep[1]),
-        "symbol": sep[2],
+        "symbol": str(sep[2]),
         "price": num(sep[4])
       }
     elif "fee" in ldesc:
@@ -41,14 +43,18 @@ def parse_history(hist):
   parsed = []
   for row in hist:
     action = {
+      "text": row["description"],
       "date": row["date"].strftime("%m/%d/%Y %H:%M:%S"),
       "amount": num(row["amount"]),
-      "remaining": num(row["remaining"]),
+      # "remaining": num(row["net_cash_balance"]),
+      "reg_fee": num(row["reg_fee"]),
+      "commission": num(row["commission"]),
     }
     desc = parse_desc(row["description"])
     for key in desc.keys():
       action[key] = desc[key]
-    parsed.append(action)
+    if action["amount"] + action["reg_fee"] + action["commission"] != 0:
+      parsed.append(action)
 
   return parsed
 
@@ -58,8 +64,8 @@ def save_data(name, ext, datafolder, data):
   f.write(json.dumps(data, indent=2))
   return file
 
-def update_td(account, datafolder):
-  printf( "<< updating " + str(account) + " " + str(datetime.now().year) + " >>\n")
+def update_td(account, datafolder, year):
+  printf( "<< updating " + str(account) + " " + str(year) + " >>\n")
 
   # log in
   printf( "starting scraper...")
@@ -72,8 +78,8 @@ def update_td(account, datafolder):
   printf( "done\n")
 
   # get transaction history
-  printf( "getting history...")
-  history = td.history()
+  printf( "getting transaction history...")
+  history = td.history(year)
   parsed = parse_history(history)
   printf( "done\n")
 
@@ -88,8 +94,12 @@ def update_td(account, datafolder):
 
   loggedInKibot = False
   symboldata = []
+  printf("getting stock history...\n")
   for s in symbols:
-    printf( "getting $" + s.upper() + " data...")
+    if symbols[0] is s:
+      printf(s.upper())
+    else:
+      printf("| " + s.upper())
     if not loggedInKibot:
       requests.get(KIBOT_LOGIN)
     response = requests.get(KIBOT_STOCK.replace("<SYMBOL>",s.upper()).replace("<STARTDATE>",startdate.strftime("%d/%m/%Y"))).text
@@ -108,7 +118,7 @@ def update_td(account, datafolder):
         "c": float(data[4])
       }
     symboldata.append(sym)
-    printf( "done\n" if len(s) < 4 else "done\n")
+  printf("\ngetting stock history... done\n")
 
   # quit
   printf( "exiting scraper...")
@@ -117,12 +127,13 @@ def update_td(account, datafolder):
 
   printf( "saving data...")
   files = []
-  files.append(save_data("tda_" + account + "_" + str(datetime.now().year), ".json", datafolder, parsed))
+  files.append(save_data("tda_" + account + "_" + str(year), ".json", datafolder, parsed))
   for s in symboldata:
     files.append(save_data(s["symbol"], ".txt", datafolder, s["data"]))
 
   printf( "done\n")
 
-  for f in files:
-    printf(f+"\n")
+  # for f in files:
+  #   printf(f+"\n")
+
   return file

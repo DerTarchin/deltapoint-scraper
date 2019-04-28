@@ -39,6 +39,7 @@ def get_web_driver(login):
     options = Options()
     options.add_argument('--headless')
     options.add_argument('--disable-gpu')  # Last I checked this was necessary.
+    options.add_argument('--window-size=1200,1100');
     driver = Chrome(chrome_options=options)
 
     driver.get("https://www.tdameritrade.com")
@@ -64,12 +65,14 @@ def get_web_driver(login):
 
     return driver
 
-def get_transaction_history(driver):
+def get_transaction_history(driver, year):
     header_map = {
         "1": "date",
         "3": "description",
         "5": "amount",
-        "7": "remaining"
+        "7": "commission",
+        "9": "reg_fee",
+        "11": "net_cash_balance"
     }
 
     driver.switch_to.frame(driver.find_element_by_css_selector("iframe#main"))
@@ -78,11 +81,31 @@ def get_transaction_history(driver):
     if links == None or links == False or len(links) == 0:
         driver.switch_to.defaultContent()
         return False
+    
     for link in links:
         if text(link).lower() == "current year":
-            link.click()
+            currLink = link
+        if text(link).lower() == "previous year":
+            prevLink = link
+
+    link = prevLink if year else currLink
+    link.click()
+    time.sleep(1)
+
+    if year:
+        yearSelections = [driver.find_element_by_name("FROM_YEAR"), driver.find_element_by_name("TO_YEAR")]
+        for select in yearSelections:
+            options = select.find_elements_by_tag_name("option")
+            for opt in options:
+                if opt.get_attribute("value") == str(year):
+                    opt.click()
+                    time.sleep(1)
+        viewlink = driver.find_element_by_id("viewbtn")
+        if viewlink:
+            viewlink.click()
             time.sleep(1)
-            break
+            driver.implicitly_wait(20)
+
     rows = driver.find_elements_by_css_selector("form #paging1 + table tr[class*='row']")
     data = []
     for row in rows:
@@ -146,16 +169,20 @@ class TD(object):
         time.sleep(3)
         return
 
-    def history(self):
+    def history(self, year=None):
         url = "https://invest.ameritrade.com/grid/p/site#r=jPage/cgi-bin/apps/u/History"
         # url might break often ?
         self.driver.get(url)
         self.driver.implicitly_wait(20)
-        history = get_transaction_history(self.driver)
+
+        if year == datetime.now().year:
+            year = None
+
+        history = get_transaction_history(self.driver, year)
         if history == False or history == None or len(history) == 0:
             # sometimes UI doesn't render
             self.driver.refresh()
             self.driver.implicitly_wait(20)
             time.sleep(2)
-            return get_transaction_history(self.driver)
+            return get_transaction_history(self.driver, year)
         return history
