@@ -99,7 +99,7 @@ def update_td(account, datafolder, year):
     if symbols[0] is s:
       printf(s.upper())
     else:
-      printf("| " + s.upper())
+      printf(" | " + s.upper())
     if not loggedInKibot:
       requests.get(KIBOT_LOGIN)
     response = requests.get(KIBOT_STOCK.replace("<SYMBOL>",s.upper()).replace("<STARTDATE>",startdate.strftime("%d/%m/%Y"))).text
