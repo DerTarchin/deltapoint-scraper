@@ -1,32 +1,13 @@
 import selenium
-from selenium.webdriver.chrome.options import Options
+from selenium import webdriver
+# from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.options import Options
 from datetime import date, datetime, timedelta
 import unicodedata
 import json
 import re
 import time
-
-try:
-    from StringIO import StringIO  # Python 2
-except ImportError:
-    from io import BytesIO as StringIO  # Python 3
-
-from seleniumrequests import Chrome
-
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
-
-
-def assert_pd():
-    # Common function to check if pd is installed
-    if not pd:
-        raise ImportError(
-            "transactions data requires pandas; "
-            "please pip install pandas"
-        )
-
+import os
 
 def date(dateraw, format):
     return datetime.strptime(dateraw, format)
@@ -37,19 +18,34 @@ def text(el):
 
 def get_web_driver(login):
     options = Options()
+
+    options.add_argument("--window-size=1920,1080")
+    # options.add_argument("--disable-extensions")
+    # options.add_argument("--proxy-server='direct://'")
+    # options.add_argument("--proxy-bypass-list=*")
+    # options.add_argument("--start-maximized")
     options.add_argument('--headless')
-    options.add_argument('--disable-gpu')  # Last I checked this was necessary.
-    options.add_argument('--window-size=1200,1100');
-    driver = Chrome(chrome_options=options)
+    # options.add_argument('--disable-gpu')
+    # options.add_argument('--disable-dev-shm-usage')
+    # options.add_argument('--no-sandbox')
+    # options.add_argument('--ignore-certificate-errors')
+
+    # driver = Chrome(chrome_options=options)
+    # driver = webdriver.Chrome(browser = webdriver.Chrome(executable_path=r"C:\path\to\chromedriver.exe")
+    
+    script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
+    # driver = webdriver.Chrome(executable_path=os.path.join(script_dir, "chromedriver"), chrome_options=options)
+
+    driver = webdriver.Firefox(executable_path=os.path.join(script_dir, "geckodriver"), firefox_options=options)
 
     driver.get("https://www.tdameritrade.com")
-    driver.implicitly_wait(20)  # seconds
+    driver.implicitly_wait(200)  # seconds
 
     driver.find_element_by_id("userid").send_keys(login["u"])
     driver.find_element_by_id("password").send_keys(login["p"])
     driver.find_element_by_class_name("main-header-login-submit").click()
 
-    driver.implicitly_wait(20)  # seconds
+    driver.implicitly_wait(200)  # seconds
 
     if "login" in driver.current_url:
         qe = driver.find_element_by_css_selector("#login .securityChallenge + .securityP")
@@ -61,8 +57,7 @@ def get_web_driver(login):
         if remember.get_property("aria-checked") == "false":
             remember.click()
         driver.find_element_by_css_selector("#login .dijitButtonNode").click()
-        driver.implicitly_wait(20)  # seconds
-
+        driver.implicitly_wait(200)  # seconds
     return driver
 
 def get_transaction_history(driver, year):
@@ -76,16 +71,22 @@ def get_transaction_history(driver, year):
     }
 
     driver.switch_to.frame(driver.find_element_by_css_selector("iframe#main"))
-    driver.implicitly_wait(20)
-    links = driver.find_elements_by_css_selector("form td a")
+    driver.implicitly_wait(200)
+    yearlinks = driver.find_element_by_id("viewYearContainer")
+    links = yearlinks.find_elements_by_css_selector("a")
     if links == None or links == False or len(links) == 0:
         driver.switch_to.defaultContent()
         return False
     
     for link in links:
-        if text(link).lower() == "current year":
+        # website updated 
+        # if text(link).lower() == "current year":
+        #     currLink = link
+        # if text(link).lower() == "previous year":
+        #     prevLink = link
+        if text(link) == str(datetime.now().year):
             currLink = link
-        if text(link).lower() == "previous year":
+        if text(link) == str(datetime.now().year - 1):
             prevLink = link
 
     link = prevLink if year else currLink
@@ -104,7 +105,7 @@ def get_transaction_history(driver, year):
         if viewlink:
             viewlink.click()
             time.sleep(1)
-            driver.implicitly_wait(20)
+            driver.implicitly_wait(200)
 
     rows = driver.find_elements_by_css_selector("form #paging1 + table tr[class*='row']")
     data = []
@@ -158,14 +159,16 @@ class TD(object):
         self.driver = get_web_driver(login)
 
     def account(self, nickname):
-        self.driver.find_element_by_id("accountSwitcherSelectBox").click()
-        self.driver.implicitly_wait(1)
+        # print self.driver.page_source.encode("utf-8")
+        sbox = self.driver.find_element_by_id("accountSwitcherSelectBox")
+        sbox.click()
+        self.driver.implicitly_wait(200)
         options = self.driver.find_elements_by_css_selector("#accountSwitcherSelect_menu .accountNickname")
         for option in options:
             if option.get_property("textContent") == nickname:
                 option.click()
 
-        self.driver.implicitly_wait(20)
+        self.driver.implicitly_wait(200)
         time.sleep(3)
         return
 
@@ -173,7 +176,7 @@ class TD(object):
         url = "https://invest.ameritrade.com/grid/p/site#r=jPage/cgi-bin/apps/u/History"
         # url might break often ?
         self.driver.get(url)
-        self.driver.implicitly_wait(20)
+        self.driver.implicitly_wait(200)
 
         if year == datetime.now().year:
             year = None
@@ -182,7 +185,7 @@ class TD(object):
         if history == False or history == None or len(history) == 0:
             # sometimes UI doesn't render
             self.driver.refresh()
-            self.driver.implicitly_wait(20)
+            self.driver.implicitly_wait(200)
             time.sleep(2)
             return get_transaction_history(self.driver, year)
         return history
