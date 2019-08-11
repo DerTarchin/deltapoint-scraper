@@ -159,6 +159,7 @@ class TD(object):
         self.driver = get_web_driver(login)
 
     def account(self, nickname):
+        time.sleep(1)
         # print self.driver.page_source.encode("utf-8")
         sbox = self.driver.find_element_by_id("accountSwitcherSelectBox")
         sbox.click()

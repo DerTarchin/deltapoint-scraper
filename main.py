@@ -27,6 +27,7 @@ try:
   # sys.exit();
 
   RUN_UPDATE = True
+  SEND_DATA = True
 
   CWD = dirname(realpath(__file__))
   DATA_FOLDER = os.path.join(CWD) + "/datadumps"
@@ -269,9 +270,12 @@ try:
         break
   printf("done\n")
 
-  printf( "uploading to server...")
-  senddata(f)
-  printf( "done\n")
+  if SEND_DATA:
+    printf( "uploading to server...")
+    senddata(f)
+    printf( "done\n")
+  else:
+    printf("Skipped sending to server.")
   printf( "=============================")
 
 except Exception, e:
