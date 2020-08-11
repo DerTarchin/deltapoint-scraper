@@ -7,6 +7,9 @@ import os
 import sys
 import time
 
+RUN_UPDATE = True
+SEND_DATA = True
+
 def printf(txt):
   LOG = open(dirname(realpath(__file__)) + "/log.txt", "a")
   print txt,
@@ -23,11 +26,6 @@ try:
   from copy import deepcopy
   import pexpect
   import json
-
-  # sys.exit();
-
-  RUN_UPDATE = True
-  SEND_DATA = True
 
   CWD = dirname(realpath(__file__))
   DATA_FOLDER = os.path.join(CWD) + "/datadumps"
@@ -156,6 +154,10 @@ try:
             # continue
           elif t["type"] in ["buy", "sell"]:
             sym = t["symbol"]
+            try:
+              x = history[sym][daystr]
+            except:
+              print sym, history[sym]
             hist = history[sym][daystr]
             # >> following was removed due to introduction of commission in data
             # commissions = timeseries["meta"]["commission"]
