@@ -4,17 +4,18 @@ import traceback
 from datetime import datetime, timedelta
 from shutil import copyfile
 import os
-import sys
 import time
 
 RUN_UPDATE = True
 SEND_DATA = True
+
 
 def printf(txt):
     LOG = open(dirname(realpath(__file__)) + "/log.txt", "a")
     print txt,
     LOG.write(txt)
     LOG.flush()
+
 
 try:
     # printf("running..." + datetime.now().strftime("%m/%d/%Y %H:%M:%S")+"\n")
@@ -87,8 +88,9 @@ try:
                 "last_updated": datetime.now().strftime(DATE_FORMAT),
                 "adjustment_history": ADJUSTMENTS["adjustment_history"],
                 "symbols_traded": symbols_traded,
-                "max_contribution": ADJUSTMENTS["contribution_history"],
-                "commission": ADJUSTMENTS["commission_history"]
+                "max_contribution": ADJUSTMENTS["contribution_limit_history"],
+                "commission": ADJUSTMENTS["commission_history"],
+                "vts": ADJUSTMENTS["monthly_vts_history"]
             }
         }
         day = startdate
@@ -101,6 +103,20 @@ try:
         cash_balance = 0
         total_trades = 0
         while day < today:
+            # check for monthly VTS fee
+            if day.day == 30 or (day.day < 30 and (day + timedelta(days=1)).day == 1):
+                # get current applicable VTS rate
+                current_vts_index = len(ADJUSTMENTS["monthly_vts_history"]) - 1
+                vts_rate = ADJUSTMENTS["monthly_vts_history"][current_vts_index][1]
+                while current_vts_index >= 0 and day < datetime.strptime(ADJUSTMENTS["monthly_vts_history"][current_vts_index][0], DATE_FORMAT):
+                    current_vts_index -= 1
+                    if current_vts_index < 0:
+                        vts_rate = 0
+                    else:
+                        vts_rate = ADJUSTMENTS["monthly_vts_history"][current_vts_index][1]
+                total_fees += vts_rate
+
+            # update weekly data
             if day.weekday() < 5:
                 daystr = day.strftime(DATE_FORMAT)
                 data = {}
@@ -167,14 +183,6 @@ try:
                             printf(str(daystr) + "\n")
                             printf(str(history[sym]) + "\n")
                         hist = history[sym][daystr]
-                        # >> following was removed due to introduction of commission in data
-                        # commissions = timeseries["meta"]["commission"]
-                        # currCommission = commissions[-1][1]
-                        # if datetime.strptime(commissions[-1][0], DATE_FORMAT) > day:
-                        #   commissionsIndex = -1
-                        #   while abs(commissionsIndex) <= len(commissions) and datetime.strptime(commissions[commissionsIndex][0], DATE_FORMAT) > day:
-                        #     commissionsIndex -= 1
-                        #   currCommission = commissions[commissionsIndex][1]
                         total_fees += t["commission"]
                         total_fees += t["reg_fee"]
                         total_trades += 1
@@ -288,6 +296,5 @@ try:
 
 except Exception, e:
     printf("\n")
-    printf(str(e) + "\n")
-    printf(traceback.print_exc())
+    printf(traceback.format_exc())
     printf("=============================")

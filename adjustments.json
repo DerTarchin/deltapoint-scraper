@@ -3,7 +3,7 @@
     ["2/28/2018", 6.95],
     ["10/3/2019", 0]
   ],
-  "contribution_history": [
+  "contribution_limit_history": [
     [2018, 5500],
     [2019, 6000]
   ],
@@ -14,5 +14,8 @@
         "kibot_updated": true
       }
     }
-  }
+  },
+  "monthly_vts_history": [
+    ["12/30/2018", 50]
+  ]
 }

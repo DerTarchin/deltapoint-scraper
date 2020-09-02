@@ -9,6 +9,8 @@ KIBOT_LOGIN = "http://api.kibot.com/?action=login&user=guest&password=guest"
 KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=08/08/18"
 CWD = os.path.dirname(os.path.realpath(__file__))
 login = json.load(open(CWD + "/.login"))
+loggedInKibot = False
+dateformat = "%m/%d/%Y %H:%M:%S"
 
 
 def printf(txt):
@@ -16,9 +18,6 @@ def printf(txt):
     LOG = open(CWD + "/log.txt", "a")
     LOG.write(txt)
     LOG.flush()
-
-
-dateformat = "%m/%d/%Y %H:%M:%S"
 
 
 def num(n):
@@ -69,6 +68,21 @@ def save_data(name, ext, datafolder, data):
     return file
 
 
+def getKibotData(endpoint):
+    if not loggedInKibot:
+        requests.get(KIBOT_LOGIN)
+    attempts = 0
+    response = None
+    while attempts < 5:
+        req_response = requests.get(endpoint)
+        response = req_response.text
+        # sometimes kibot returns an error (499 Not Allowed)
+        # in those cases, while loop will attempt again
+        if "kibot" not in response:
+            return response.split("\r\n")
+    return response
+
+
 def update_td(account, datafolder, year):
     printf("<< updating " + str(account) + " " + str(year) + " >>\n")
 
@@ -97,25 +111,22 @@ def update_td(account, datafolder, year):
         if "symbol" in row and row["symbol"] not in symbols:
             symbols.append(row["symbol"])
 
-    loggedInKibot = False
     symboldata = []
     printf("getting stock history...\n")
     for s in symbols:
-        if symbols[0] is s:
-            printf(s.upper())
-        else:
-            printf(" | " + s.upper())
-        if not loggedInKibot:
-            requests.get(KIBOT_LOGIN)
-        response = requests.get(KIBOT_STOCK.replace("<SYMBOL>", s.upper()).replace("<STARTDATE>", startdate.strftime("%d/%m/%Y"))).text
+        printf("\n| " + s.upper())
+        endpoint = KIBOT_STOCK.replace("<SYMBOL>", s.upper()).replace("<STARTDATE>", startdate.strftime("%d/%m/%Y"))
+        kibotData = getKibotData(endpoint)
         sym = {
             "symbol": s,
             "data": {}
         }
-        for day in response.split("\r\n"):
+        for day in kibotData:
             if not day or "," not in day:
                 continue
             data = day.split(",")
+            if "kibot" in day:
+                print s, day
             sym["data"][data[0]] = {
                 "o": float(data[1]),
                 "h": float(data[2]),
