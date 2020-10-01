@@ -163,6 +163,7 @@ try:
                 for t in transactions:
                     cash_balance += t["amount"]
 
+                    # all types. adj and dividends can be ignored
                     if t["type"] == "transfer":
                         total_contributions += t["amount"]
                         if str(day.year) in ytd_contributions:
@@ -171,8 +172,6 @@ try:
                             ytd_contributions[str(day.year)] = t["amount"]
                     elif t["type"] == "fee":
                         total_fees += abs(t["amount"])
-                    # elif t["type"] == "adj":
-                        # continue
                     elif t["type"] in ["buy", "sell"]:
                         sym = t["symbol"]
                         try:

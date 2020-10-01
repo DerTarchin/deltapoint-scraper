@@ -40,6 +40,8 @@ def parse_history(hist):
             return {"type": "fee"}
         elif "funding" in ldesc:
             return {"type": "transfer"}
+        elif "dividend" in ldesc:
+            return {"type": "dividend"}
         else:
             return {"type": "adj"}
     parsed = []
@@ -79,6 +81,9 @@ def getKibotData(endpoint):
         # sometimes kibot returns an error (499 Not Allowed)
         # in those cases, while loop will attempt again
         if "kibot" not in response:
+            # if "SOXL" in endpoint:
+            #     print response
+            #     print "\n\n"
             return response.split("\r\n")
     return response
 
@@ -114,25 +119,29 @@ def update_td(account, datafolder, year):
     symboldata = []
     printf("getting stock history...\n")
     for s in symbols:
-        printf("\n| " + s.upper())
+        if s is not symbols[0]:
+            printf("\n")
+        printf("| " + s.upper())
         endpoint = KIBOT_STOCK.replace("<SYMBOL>", s.upper()).replace("<STARTDATE>", startdate.strftime("%d/%m/%Y"))
         kibotData = getKibotData(endpoint)
         sym = {
             "symbol": s,
             "data": {}
         }
+        latest_kibot_day = None
         for day in kibotData:
             if not day or "," not in day:
                 continue
             data = day.split(",")
-            if "kibot" in day:
-                print s, day
+            latest_kibot_day = data[0]
             sym["data"][data[0]] = {
                 "o": float(data[1]),
                 "h": float(data[2]),
                 "l": float(data[3]),
                 "c": float(data[4])
             }
+        spaces = "     " if len(s) == 3 else "    "
+        printf(spaces + latest_kibot_day + "    $" + str(sym["data"][latest_kibot_day]["c"]))
         symboldata.append(sym)
     printf("\ngetting stock history... done\n")
 
