@@ -41,7 +41,10 @@ def parse_history(hist):
         elif "funding" in ldesc:
             return {"type": "transfer"}
         elif "dividend" in ldesc:
-            return {"type": "dividend"}
+            return {
+                "type": "dividend",
+                "symbol": ldesc.replace(')', '(').split('(')[-2]
+            }
         else:
             return {"type": "adj"}
     parsed = []
@@ -121,7 +124,7 @@ def update_td(account, datafolder, year):
     for s in symbols:
         if s is not symbols[0]:
             printf("\n")
-        printf("| " + s.upper())
+        printf("| " + str(s).upper())
         endpoint = KIBOT_STOCK.replace("<SYMBOL>", s.upper()).replace("<STARTDATE>", startdate.strftime("%d/%m/%Y"))
         kibotData = getKibotData(endpoint)
         sym = {
@@ -141,7 +144,10 @@ def update_td(account, datafolder, year):
                 "c": float(data[4])
             }
         spaces = "     " if len(s) == 3 else "    "
-        printf(spaces + latest_kibot_day + "    $" + str(sym["data"][latest_kibot_day]["c"]))
+        if not latest_kibot_day:
+            printf(spaces + "none")
+        else:
+            printf(spaces + latest_kibot_day + "    $" + str(sym["data"][latest_kibot_day]["c"]))
         symboldata.append(sym)
     printf("\ngetting stock history... done\n")
 

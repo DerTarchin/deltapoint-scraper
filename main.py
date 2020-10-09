@@ -90,7 +90,8 @@ try:
                 "symbols_traded": symbols_traded,
                 "max_contribution": ADJUSTMENTS["contribution_limit_history"],
                 "commission": ADJUSTMENTS["commission_history"],
-                "vts": ADJUSTMENTS["monthly_vts_history"]
+                "vts_rates": ADJUSTMENTS["monthly_vts_history"],
+                "vts_history": {}
             }
         }
         day = startdate
@@ -99,6 +100,7 @@ try:
         positions = {}
         total_contributions = 0
         ytd_contributions = {str(startdate.year): 0}
+        vts_fees = 0
         total_fees = 0
         cash_balance = 0
         total_trades = 0
@@ -115,6 +117,10 @@ try:
                     else:
                         vts_rate = ADJUSTMENTS["monthly_vts_history"][current_vts_index][1]
                 total_fees += vts_rate
+                vts_fees += vts_rate
+                if vts_rate:
+                    timeseries["meta"]["vts_history"][day.strftime(DATE_FORMAT)] = vts_rate
+
 
             # update weekly data
             if day.weekday() < 5:
@@ -229,6 +235,7 @@ try:
                 data["ytd_contributions"] = ytd_contributions.get(str(day.year), 0)
                 data["cash_balance"] = cash_balance
                 data["total_fees"] = total_fees
+                data["vts_fees"] = vts_fees
                 data["balance"] = data["cash_balance"] + sum([data["positions"][p]["shares"] * data["positions"][p]["c"] for p in data["positions"]])
                 data["total_trades"] = total_trades
 
