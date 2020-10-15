@@ -6,7 +6,7 @@ from shutil import copyfile
 import os
 import time
 
-RUN_UPDATE = True
+RUN_UPDATE = False
 SEND_DATA = True
 
 
@@ -167,7 +167,8 @@ try:
                 if len(transactions) > 0:
                     data["transactions"] = transactions
                 for t in transactions:
-                    cash_balance += t["amount"]
+                    if t["type"] != "adj" or "Cash Alternatives Redemption" not in t["text"]:
+                        cash_balance += t["amount"]
 
                     # all types. adj and dividends can be ignored
                     if t["type"] == "transfer":
@@ -181,13 +182,12 @@ try:
                     elif t["type"] in ["buy", "sell"]:
                         sym = t["symbol"]
                         try:
-                            history[sym][daystr]
+                            hist = history[sym][daystr]
                         except Exception:
                             printf("\nError with:\n")
                             printf(str(sym) + "\n")
-                            printf(str(daystr) + "\n")
-                            printf(str(history[sym]) + "\n")
-                        hist = history[sym][daystr]
+                            print(str(daystr) + "\n")
+                            # printf(str(history[sym]) + "\n")
                         total_fees += t["commission"]
                         total_fees += t["reg_fee"]
                         total_trades += 1
@@ -196,15 +196,16 @@ try:
                         # new position
                         if sym not in active_investments:
                             active_investments.append(sym)
-                            data["positions"][sym] = {
-                                "shares": t["shares"],
-                                "o": hist["o"],
-                                "h": hist["h"],
-                                "l": hist["l"],
-                                "c": hist["c"],
-                                "avg": t["price"],
-                                "since": t["date"],
-                            }
+                            if hist:
+                                data["positions"][sym] = {
+                                    "shares": t["shares"],
+                                    "o": hist["o"],
+                                    "h": hist["h"],
+                                    "l": hist["l"],
+                                    "c": hist["c"],
+                                    "avg": t["price"],
+                                    "since": t["date"],
+                                }
                             # adjust stock prices for future splits/adjustments
                             if sym in ADJUSTMENTS:
                                 adj = ADJUSTMENTS[sym]
@@ -229,6 +230,11 @@ try:
                             data["positions"].pop(sym, None)
                         else:
                             pos["shares"] -= t["shares"]
+                        if hist:
+                            t["o"] = hist["o"]
+                            t["h"] = hist["h"]
+                            t["l"] = hist["l"]
+                            t["c"] = hist["c"]
 
                 # update account information
                 data["total_contributions"] = total_contributions
@@ -236,8 +242,8 @@ try:
                 data["cash_balance"] = cash_balance
                 data["total_fees"] = total_fees
                 data["vts_fees"] = vts_fees
-                data["balance"] = data["cash_balance"] + sum([data["positions"][p]["shares"] * data["positions"][p]["c"] for p in data["positions"]])
-                data["total_trades"] = total_trades
+                data["balance"] = cash_balance + sum([data["positions"][p]["shares"] * data["positions"][p]["c"] for p in data["positions"]])
+                # data["total_trades"] = total_trades
 
                 timeseries[daystr] = data
                 # deepcopy local positions

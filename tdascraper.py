@@ -1,4 +1,5 @@
 from datetime import datetime
+from iexfinance.stocks import Stock, get_historical_data
 import requests
 import json
 import tdapi
@@ -6,11 +7,13 @@ import os
 
 KIBOT_LOGIN = "http://api.kibot.com/?action=login&user=guest&password=guest"
 # KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=<STARTDATE>"
-KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=08/08/18"
+KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=08/08/18&splitadjusted=1"
 CWD = os.path.dirname(os.path.realpath(__file__))
 login = json.load(open(CWD + "/.login"))
 loggedInKibot = False
 dateformat = "%m/%d/%Y %H:%M:%S"
+
+RUN_IEX = True
 
 
 def printf(txt):
@@ -125,6 +128,7 @@ def update_td(account, datafolder, year):
         if s is not symbols[0]:
             printf("\n")
         printf("| " + str(s).upper())
+
         endpoint = KIBOT_STOCK.replace("<SYMBOL>", s.upper()).replace("<STARTDATE>", startdate.strftime("%d/%m/%Y"))
         kibotData = getKibotData(endpoint)
         sym = {
@@ -132,6 +136,7 @@ def update_td(account, datafolder, year):
             "data": {}
         }
         latest_kibot_day = None
+
         for day in kibotData:
             if not day or "," not in day:
                 continue
@@ -143,11 +148,30 @@ def update_td(account, datafolder, year):
                 "l": float(data[3]),
                 "c": float(data[4])
             }
+
+        # get updated close data from IEX Cloud
+        if RUN_IEX:
+            api_data = Stock(str(s.upper()), token=str(login["iex"])).get_quote()
+            api_latest_date = datetime.fromtimestamp(api_data["lastTradeTime"] / 1000).strftime("%m/%d/%Y")
+            if api_latest_date != latest_kibot_day:
+                # latest_kibot_day = api_latest_date
+                sym["data"][api_latest_date] = {
+                    "o": api_data["latestPrice"],
+                    "h": api_data["latestPrice"],
+                    "l": api_data["latestPrice"],
+                    "c": api_data["latestPrice"]
+                }
+
+        status_str = ""
         spaces = "     " if len(s) == 3 else "    "
         if not latest_kibot_day:
-            printf(spaces + "none")
+            status_str += spaces + "none"
         else:
-            printf(spaces + latest_kibot_day + "    $" + str(sym["data"][latest_kibot_day]["c"]))
+            status_str += spaces + latest_kibot_day + "  " + str(sym["data"][latest_kibot_day]["c"])
+        if api_latest_date != latest_kibot_day:
+            tabs = "\t\t" if len(status_str) < 23 else "\t"
+            status_str += tabs + "|  IEX:  " + api_latest_date + "  " + str(sym["data"][api_latest_date]["c"])
+        printf(status_str)
         symboldata.append(sym)
     printf("\ngetting stock history... done\n")
 
