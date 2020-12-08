@@ -1,5 +1,6 @@
 from datetime import datetime
-from iexfinance.stocks import Stock, get_historical_data
+from iexfinance.stocks import Stock
+from bs4 import BeautifulSoup
 import requests
 import json
 import tdapi
@@ -8,12 +9,14 @@ import os
 KIBOT_LOGIN = "http://api.kibot.com/?action=login&user=guest&password=guest"
 # KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=<STARTDATE>"
 KIBOT_STOCK = "http://api.kibot.com/?action=history&symbol=<SYMBOL>&interval=daily&startdate=08/08/18&splitadjusted=1"
+Y_FINANCE_STOCK = "https://finance.yahoo.com/quote/<SYMBOL>/"
 CWD = os.path.dirname(os.path.realpath(__file__))
 login = json.load(open(CWD + "/.login"))
 loggedInKibot = False
 dateformat = "%m/%d/%Y %H:%M:%S"
 
 RUN_IEX = True
+RUN_RH = True
 
 
 def printf(txt):
@@ -156,11 +159,18 @@ def update_td(account, datafolder, year):
             if api_latest_date != latest_kibot_day:
                 # latest_kibot_day = api_latest_date
                 sym["data"][api_latest_date] = {
-                    "o": api_data["latestPrice"],
-                    "h": api_data["latestPrice"],
-                    "l": api_data["latestPrice"],
+                    "o": api_data["latestPrice"],  # free tier doesn't include open
+                    "h": api_data["latestPrice"],  # free tier doesn't include high
+                    "l": api_data["latestPrice"],  # free tier doesn't include low
                     "c": api_data["latestPrice"]
                 }
+                # get true open, high, low values of the day from Yahoo Finance
+                page = requests.get(Y_FINANCE_STOCK.replace("<SYMBOL>", s.upper()))
+                soup = BeautifulSoup(page.content, 'html.parser')
+                sym["data"][api_latest_date]["o"] = float(soup.find('td', attrs={'data-test': 'OPEN-value'}).text)
+                lh = soup.find('td', attrs={'data-test': 'DAYS_RANGE-value'}).text.split(" - ")
+                sym["data"][api_latest_date]["l"] = float(lh[0])
+                sym["data"][api_latest_date]["h"] = float(lh[1])
 
         status_str = ""
         spaces = "     " if len(s) == 3 else "    "

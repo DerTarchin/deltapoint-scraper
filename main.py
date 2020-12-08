@@ -6,7 +6,7 @@ from shutil import copyfile
 import os
 import time
 
-RUN_UPDATE = False
+RUN_UPDATE = True
 SEND_DATA = True
 
 

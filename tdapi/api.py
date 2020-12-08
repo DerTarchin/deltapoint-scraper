@@ -1,16 +1,16 @@
-import selenium
 from selenium import webdriver
 # from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.firefox.options import Options
-from datetime import date, datetime, timedelta
+from datetime import datetime
 import unicodedata
-import json
 import re
 import time
 import os
 
+
 def date(dateraw, format):
     return datetime.strptime(dateraw, format)
+
 
 def text(el):
     return unicodedata.normalize("NFKD", el.get_property("textContent")).strip()
@@ -32,8 +32,8 @@ def get_web_driver(login):
 
     # driver = Chrome(chrome_options=options)
     # driver = webdriver.Chrome(browser = webdriver.Chrome(executable_path=r"C:\path\to\chromedriver.exe")
-    
-    script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
+
+    script_dir = os.path.dirname(__file__)  # <-- absolute dir the script is in
     # driver = webdriver.Chrome(executable_path=os.path.join(script_dir, "chromedriver"), chrome_options=options)
 
     driver = webdriver.Firefox(executable_path=os.path.join(script_dir, "geckodriver"), firefox_options=options)
@@ -52,13 +52,14 @@ def get_web_driver(login):
         qe = driver.find_element_by_css_selector("#login .securityChallenge + .securityP")
         q = text(qe).replace(text(qe.find_element_by_tag_name("span")), "")
 
-        driver.find_element_by_name("challengeAnswer").send_keys(login["a"][login["q"].index(min(login["q"], key=lambda x:abs(x-(len(q)))))])
+        driver.find_element_by_name("challengeAnswer").send_keys(login["a"][login["q"].index(min(login["q"], key=lambda x:abs(x - (len(q)))))])
         remember = driver.find_element_by_name("rememberDevice")
         if remember.get_property("aria-checked") == "false":
             remember.click()
         driver.find_element_by_css_selector("#login .dijitButtonNode").click()
         driver.implicitly_wait(200)  # seconds
     return driver
+
 
 def get_transaction_history(driver, year):
     header_map = {
@@ -74,12 +75,12 @@ def get_transaction_history(driver, year):
     driver.implicitly_wait(200)
     yearlinks = driver.find_element_by_id("viewYearContainer")
     links = yearlinks.find_elements_by_css_selector("a")
-    if links == None or links == False or len(links) == 0:
+    if links is None or links is False or not links:
         driver.switch_to.defaultContent()
         return False
-    
+
     for link in links:
-        # website updated 
+        # website updated
         # if text(link).lower() == "current year":
         #     currLink = link
         # if text(link).lower() == "previous year":
@@ -122,11 +123,14 @@ def get_transaction_history(driver, year):
 
 
 IGNORE_FLOAT_REGEX = re.compile(r"[$,%]")
+
+
 def parse_float(str_number):
     try:
         return float(IGNORE_FLOAT_REGEX.sub(str_number, ""))
     except ValueError:
         return None
+
 
 class TD(object):
     driver = None
@@ -147,7 +151,7 @@ class TD(object):
         try:
             self.driver.implicitly_wait(1)
             self.driver.find_element_by_css_selector(".logout a").click()
-        except:
+        except Exception:
             pass
 
         self.driver.quit()
@@ -183,7 +187,7 @@ class TD(object):
             year = None
 
         history = get_transaction_history(self.driver, year)
-        if history == False or history == None or len(history) == 0:
+        if history is False or history is None or len(history) == 0:
             # sometimes UI doesn't render
             self.driver.refresh()
             self.driver.implicitly_wait(200)
