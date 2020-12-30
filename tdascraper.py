@@ -47,9 +47,14 @@ def parse_history(hist):
         elif "funding" in ldesc:
             return {"type": "transfer"}
         elif "dividend" in ldesc:
+            div_sym = None
+            if "~" in ldesc:
+                div_sym = ldesc.split('~')[-1]
+            else:
+                div_sym = ldesc.replace(')', '(').split('(')[-2]
             return {
                 "type": "dividend",
-                "symbol": ldesc.replace(')', '(').split('(')[-2]
+                "symbol": div_sym
             }
         else:
             return {"type": "adj"}
