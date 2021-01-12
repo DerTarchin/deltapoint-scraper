@@ -150,7 +150,7 @@ try:
                         # if day of adjusment, ajust shares + avg
                         if daystr in adj:
                             ratio = float(adj[daystr]["ratio"].split(":")[0]) / float(adj[daystr]["ratio"].split(":")[1])
-                            pos["avg"] /= ratio
+                            pos["avg"] = round(pos["avg"] / ratio, 2)
                             pos["shares"] = int(math.floor(pos["shares"] * ratio))
                         else:
                             adjday = today  # datetime objects are immutable
@@ -222,7 +222,7 @@ try:
                         # updated position
                         else:
                             pos = data["positions"][sym]
-                            pos["avg"] = ((pos["avg"] * pos["shares"]) + (t["shares"] * t["price"])) / (pos["shares"] + t["shares"])
+                            pos["avg"] = round(((pos["avg"] * pos["shares"]) + (t["shares"] * t["price"])) / (pos["shares"] + t["shares"]), 2)
                             pos["shares"] += t["shares"]
 
                     if t["type"] == "sell":
@@ -241,10 +241,10 @@ try:
                 # update account information
                 data["total_contributions"] = total_contributions
                 data["ytd_contributions"] = ytd_contributions.get(str(day.year), 0)
-                data["cash_balance"] = cash_balance
-                data["total_fees"] = total_fees
-                data["vts_fees"] = vts_fees
-                data["balance"] = cash_balance + sum([data["positions"][p]["shares"] * data["positions"][p]["c"] for p in data["positions"]])
+                data["cash_balance"] = round(cash_balance, 2)
+                data["total_fees"] = round(total_fees, 2)
+                data["vts_fees"] = round(vts_fees, 2)
+                data["balance"] = round(cash_balance + sum([data["positions"][p]["shares"] * data["positions"][p]["c"] for p in data["positions"]]), 2)
                 # data["total_trades"] = total_trades
 
                 timeseries[daystr] = data
