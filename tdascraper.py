@@ -95,9 +95,6 @@ def getKibotData(endpoint):
         # sometimes kibot returns an error (499 Not Allowed)
         # in those cases, while loop will attempt again
         if "kibot" not in response:
-            # if "SOXL" in endpoint:
-            #     print response
-            #     print "\n\n"
             return response.split("\r\n")
     return response
 
@@ -121,6 +118,11 @@ def update_td(account, datafolder, year):
     parsed = parse_history(history)
     printf("done\n")
 
+    # get all active positions (in case no transaction history for the year)
+    printf("getting active positions...")
+    active_positions = td.positions()
+    printf("done\n")
+
     startdate = None
     symbols = []
     for row in parsed:
@@ -129,6 +131,10 @@ def update_td(account, datafolder, year):
             startdate = date
         if "symbol" in row and row["symbol"] not in symbols:
             symbols.append(row["symbol"])
+
+    for s in active_positions:
+        if s not in symbols:
+            symbols.append(s)
 
     symboldata = []
     printf("getting stock history...\n")

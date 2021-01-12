@@ -39,7 +39,7 @@ try:
     FILENAME = ".dpd"
 
     YEAR = datetime.now().year
-    # YEAR = 2018
+    # YEAR = 2020
 
     # update all accounts
     # TODO: make tdascraper an object you can keep instances of and switch accounts for
@@ -86,6 +86,7 @@ try:
             "meta": {
                 "start_date": startdate.strftime(DATE_FORMAT),
                 "last_updated": datetime.now().strftime(DATE_FORMAT),
+                "timestamp": datetime.now().strftime("%c"),
                 "adjustment_history": ADJUSTMENTS["adjustment_history"],
                 "symbols_traded": symbols_traded,
                 "max_contribution": ADJUSTMENTS["contribution_limit_history"],
@@ -136,11 +137,12 @@ try:
                     pos = data["positions"][p]
                     # do not update if holiday or missing info
                     if daystr not in history[p]:
-                        break
+                        continue
                     pos["o"] = history[p][daystr]["o"]
                     pos["h"] = history[p][daystr]["h"]
                     pos["l"] = history[p][daystr]["l"]
                     pos["c"] = history[p][daystr]["c"]
+
                     # ajdust position info to if needed:
                     # - avg + shares are adjusted on day of splits/adjustments, carried forward
                     if p in ADJUSTMENTS["adjustment_history"]:

@@ -122,6 +122,16 @@ def get_transaction_history(driver, year):
     return data
 
 
+def get_active_positions(driver):
+    driver.implicitly_wait(200)
+    rows = driver.find_elements_by_css_selector(".quoteTableContainer table tbody tr td:first-of-type a")
+    positions = []
+    for row in rows:
+        sym = text(row)
+        if sym:
+            positions.append(sym.lower())
+    return positions
+
 IGNORE_FLOAT_REGEX = re.compile(r"[$,%]")
 
 
@@ -194,3 +204,20 @@ class TD(object):
             time.sleep(2)
             return get_transaction_history(self.driver, year)
         return history
+
+    def positions(self):
+        url = "https://invest.ameritrade.com/grid/p/site#r=positions"
+        # url might break often ?
+        self.driver.get(url)
+        self.driver.implicitly_wait(200)
+        print "going to", url
+
+        positions = get_active_positions(self.driver)
+        print "round 1"
+        if positions is False or positions is None or len(positions) == 0:
+            # sometimes UI doesn't render
+            self.driver.refresh()
+            self.driver.implicitly_wait(200)
+            time.sleep(2)
+            return get_active_positions(self.driver)
+        return positions
