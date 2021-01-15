@@ -39,7 +39,7 @@ try:
     FILENAME = ".dpd"
 
     YEAR = datetime.now().year
-    # YEAR = 2020
+    # YEAR = 2019
 
     # update all accounts
     # TODO: make tdascraper an object you can keep instances of and switch accounts for
@@ -91,8 +91,7 @@ try:
                 "symbols_traded": symbols_traded,
                 "max_contribution": ADJUSTMENTS["contribution_limit_history"],
                 "commission": ADJUSTMENTS["commission_history"],
-                "vts_rates": ADJUSTMENTS["monthly_vts_history"],
-                "vts_history": {}
+                "vts_rates": ADJUSTMENTS["monthly_vts_history"]
             }
         }
         day = startdate
@@ -106,7 +105,7 @@ try:
         cash_balance = 0
         total_trades = 0
         while day < today:
-            # check for monthly VTS fee
+            # check for monthly VTS fee (always charged on the 30th)
             if day.day == 30 or (day.day < 30 and (day + timedelta(days=1)).day == 1):
                 # get current applicable VTS rate
                 current_vts_index = len(ADJUSTMENTS["monthly_vts_history"]) - 1
@@ -119,9 +118,6 @@ try:
                         vts_rate = ADJUSTMENTS["monthly_vts_history"][current_vts_index][1]
                 total_fees += vts_rate
                 vts_fees += vts_rate
-                if vts_rate:
-                    timeseries["meta"]["vts_history"][day.strftime(DATE_FORMAT)] = vts_rate
-
 
             # update weekly data
             if day.weekday() < 5:

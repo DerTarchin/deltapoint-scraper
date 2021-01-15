@@ -210,10 +210,8 @@ class TD(object):
         # url might break often ?
         self.driver.get(url)
         self.driver.implicitly_wait(200)
-        print "going to", url
 
         positions = get_active_positions(self.driver)
-        print "round 1"
         if positions is False or positions is None or len(positions) == 0:
             # sometimes UI doesn't render
             self.driver.refresh()

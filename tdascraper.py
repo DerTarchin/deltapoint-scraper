@@ -71,7 +71,7 @@ def parse_history(hist):
         desc = parse_desc(row["description"])
         for key in desc.keys():
             action[key] = desc[key]
-        if action["amount"] + action["reg_fee"] + action["commission"] != 0:
+        if action["amount"] + action["reg_fee"] + action["commission"] != 0 and "cash alternatives" not in action["text"].lower():
             parsed.append(action)
 
     return parsed
